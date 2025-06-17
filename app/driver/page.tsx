@@ -19,7 +19,6 @@ export default function DriverPage() {
   const [user, setUser] = useState(null)
   const [profileImage, setProfileImage] = useState("")
   const [isUpdating, setIsUpdating] = useState({})
-  const [isDemoMode, setIsDemoMode] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedDelivery, setSelectedDelivery] = useState(null)
   const [showMapDialog, setShowMapDialog] = useState(false)
@@ -47,131 +46,68 @@ export default function DriverPage() {
       }
     }
 
-    // Détecter le mode démo et charger les assignations
-    checkBackendAndFetchAssignments()
+    // Charger les assignations
+    fetchAssignments()
   }, [router])
-
-  const checkBackendAndFetchAssignments = async () => {
-    setIsLoading(true)
-
-    try {
-      // Test rapide de disponibilité du backend
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 secondes timeout
-
-      const testResponse = await fetch("http://localhost:8000/", {
-        method: "GET",
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
-
-      if (testResponse.ok) {
-        // Backend disponible, essayer de charger les vraies données
-        await fetchAssignments()
-      } else {
-        // Backend indisponible, mode démo
-        setIsDemoMode(true)
-        loadMockAssignments()
-      }
-    } catch (error) {
-      // Erreur réseau, mode démo automatique
-      setIsDemoMode(true)
-      loadMockAssignments()
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   const fetchAssignments = async () => {
     try {
       const token = localStorage.getItem("token")
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 secondes timeout
+      
+      if (!token) {
+        toast({
+          title: "Session expirée",
+          description: "Veuillez vous reconnecter",
+          variant: "destructive",
+          duration: 5000,
+        })
+        router.push("/auth/login")
+        return
+      }
 
-      const response = await fetch("http://localhost:8000/api/driver/assignments", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
+      // L'API route récupère le token depuis les cookies, pas besoin de l'envoyer dans le header
+      const response = await fetch("/api/driver/assignments")
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        if (response.status === 401) {
+          toast({
+            title: "Session expirée",
+            description: "Votre session a expiré. Veuillez vous reconnecter.",
+            variant: "destructive",
+            duration: 5000,
+          })
+          localStorage.removeItem("token")
+          localStorage.removeItem("user")
+          router.push("/auth/login")
+          return
+        } else if (response.status === 403) {
+          toast({
+            title: "Accès refusé",
+            description: "Vous n'avez pas les permissions pour accéder à cette page. Veuillez vous connecter avec un compte chauffeur.",
+            variant: "destructive",
+            duration: 5000,
+          })
+          router.push("/auth/login")
+          return
+        } else {
+          throw new Error(`Erreur serveur: ${response.status}`)
+        }
       }
 
       const data = await response.json()
+      console.log("Données des assignations reçues:", data)
       setAssignments(data)
-      setIsDemoMode(false)
     } catch (error) {
       console.error("Erreur lors du chargement des assignations:", error)
-
-      // Basculer en mode démo en cas d'erreur
-      setIsDemoMode(true)
-      loadMockAssignments()
-
       toast({
-        title: "Mode démo activé",
-        description: "Backend non disponible - Utilisation de données de démonstration",
-        duration: 3000,
+        title: "Erreur de connexion",
+        description: "Impossible de charger les assignations. Vérifiez votre connexion.",
+        variant: "destructive",
+        duration: 5000,
       })
+    } finally {
+      setIsLoading(false)
     }
-  }
-
-  const loadMockAssignments = () => {
-    const mockAssignments = [
-      {
-        id: "1",
-        trackingNumber: "TRK123456",
-        recipient: "Jean Dupont",
-        destination: "123 Rue de la Paix, 75001 Paris",
-        status: "in_transit",
-        weight: 2.5,
-        priority: "normal",
-        estimatedDelivery: "2024-01-15 14:00",
-        coordinates: { lat: 48.8606, lng: 2.3376 },
-        driverLocation: { lat: 48.8584, lng: 2.2945 },
-      },
-      {
-        id: "3",
-        trackingNumber: "TRK345678",
-        recipient: "Pierre Durand",
-        destination: "789 Boulevard Saint-Michel, 13001 Marseille",
-        status: "pending",
-        weight: 3.8,
-        priority: "urgent",
-        estimatedDelivery: "2024-01-15 10:00",
-        coordinates: { lat: 43.2965, lng: 5.3698 },
-        driverLocation: { lat: 43.2951, lng: 5.375 },
-      },
-      {
-        id: "4",
-        trackingNumber: "TRK901234",
-        recipient: "Sophie Leblanc",
-        destination: "321 Rue Victor Hugo, 31000 Toulouse",
-        status: "picked_up",
-        weight: 0.8,
-        priority: "normal",
-        estimatedDelivery: "2024-01-15 16:30",
-        coordinates: { lat: 43.6047, lng: 1.4442 },
-        driverLocation: { lat: 43.6, lng: 1.44 },
-      },
-      {
-        id: "5",
-        trackingNumber: "TRK567890",
-        recipient: "Marie Martin",
-        destination: "456 Avenue des Champs, 69000 Lyon",
-        status: "in_transit",
-        weight: 1.2,
-        priority: "urgent",
-        estimatedDelivery: "2024-01-15 11:30",
-        coordinates: { lat: 45.764, lng: 4.8357 },
-        driverLocation: { lat: 45.76, lng: 4.83 },
-      },
-    ]
-    setAssignments(mockAssignments)
   }
 
   const updateDeliveryStatus = async (deliveryId: string, newStatus: string) => {
@@ -181,82 +117,37 @@ export default function DriverPage() {
     setIsUpdating((prev) => ({ ...prev, [deliveryId]: true }))
 
     try {
-      if (isDemoMode) {
-        // Mode démo - simulation de mise à jour
-        await new Promise((resolve) => setTimeout(resolve, 1000)) // Simuler un délai
+      const token = localStorage.getItem("token")
+      const response = await fetch(`/api/deliveries/${deliveryId}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      })
 
-        setAssignments((prev) =>
-          prev.map((assignment) => (assignment.id === deliveryId ? { ...assignment, status: newStatus } : assignment)),
-        )
-
-        toast({
-          title: "Statut mis à jour (Mode démo)",
-          description: `Le statut a été changé vers "${getStatusText(newStatus)}" - Simulation`,
-          duration: 3000,
-        })
-      } else {
-        // Mode production - vraie API
-        const token = localStorage.getItem("token")
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 5000)
-
-        const response = await fetch(`http://localhost:8000/api/deliveries/${deliveryId}/status`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status: newStatus }),
-          signal: controller.signal,
-        })
-
-        clearTimeout(timeoutId)
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
-        }
-
-        // Mise à jour réussie avec le backend
-        await fetchAssignments()
-
-        toast({
-          title: "Statut mis à jour",
-          description: `Le statut a été changé vers "${getStatusText(newStatus)}"`,
-          duration: 3000,
-        })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
       }
+
+      // Mise à jour réussie avec le backend
+      await fetchAssignments()
+
+      toast({
+        title: "Statut mis à jour",
+        description: `Le statut a été changé vers "${getStatusText(newStatus)}"`,
+        duration: 3000,
+      })
     } catch (error) {
       console.error("Erreur lors de la mise à jour du statut:", error)
-
-      // En cas d'erreur, basculer en mode démo
-      if (
-        error.name === "AbortError" ||
-        error.message.includes("Failed to fetch") ||
-        error.message.includes("fetch") ||
-        error.name === "TypeError"
-      ) {
-        setIsDemoMode(true)
-
-        // Simulation de mise à jour réussie en mode démo
-        setAssignments((prev) =>
-          prev.map((assignment) => (assignment.id === deliveryId ? { ...assignment, status: newStatus } : assignment)),
-        )
-
-        toast({
-          title: "Statut mis à jour (Mode démo)",
-          description: `Le statut a été changé vers "${getStatusText(newStatus)}" - Backend non connecté`,
-          duration: 3000,
-        })
-      } else {
-        // Autres erreurs (autorisation, validation, etc.)
-        toast({
-          title: "Erreur",
-          description: error.message || "Impossible de mettre à jour le statut",
-          variant: "destructive",
-          duration: 5000,
-        })
-      }
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de mettre à jour le statut",
+        variant: "destructive",
+        duration: 5000,
+      })
     } finally {
       setIsUpdating((prev) => ({ ...prev, [deliveryId]: false }))
     }
@@ -269,12 +160,9 @@ export default function DriverPage() {
   const handleLogout = () => {
     localStorage.removeItem("token")
     localStorage.removeItem("user")
+    // Supprimer le token des cookies
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
     router.push("/auth/login")
-  }
-
-  const handleRetryConnection = () => {
-    setIsDemoMode(false)
-    checkBackendAndFetchAssignments()
   }
 
   const handleShowItinerary = (delivery) => {
@@ -360,15 +248,17 @@ export default function DriverPage() {
                     Espace Livreur
                   </h1>
                   <p className="text-xs text-slate-500 font-medium">
-                    Ahmed Livraison.e.t {isDemoMode && "• Mode Démo"}
+                    Ahmed Livraison.e.t
                   </p>
                 </div>
               </Link>
             </div>
 
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm">
-                <Bell className="h-4 w-4" />
+              <Button variant="ghost" size="sm" className="relative group">
+                <Bell className="h-5 w-5 text-blue-600 group-hover:text-blue-800 transition-colors duration-200" />
+                {/* Badge notification */}
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 border-2 border-white rounded-full shadow-md animate-pulse"></span>
               </Button>
               <Link href="/driver/profile">
                 <Button variant="ghost" size="sm">
@@ -383,14 +273,11 @@ export default function DriverPage() {
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={profileImage || "/placeholder.svg?height=32&width=32"} />
                   <AvatarFallback className="bg-blue-100 text-blue-600">
-                    {user.name
-                      ?.split(" ")
-                      .map((n) => n[0])
-                      .join("") || "U"}
+                    {user.first_name?.[0] + user.last_name?.[0] || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="hidden md:block">
-                  <p className="text-sm font-medium text-slate-900">{user.name}</p>
+                  <p className="text-sm font-medium text-slate-900">{user.first_name} {user.last_name}</p>
                   <p className="text-xs text-slate-500">{user.email}</p>
                 </div>
               </div>
@@ -405,30 +292,9 @@ export default function DriverPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Demo Mode Alert */}
-        {isDemoMode && (
-          <Alert className="mb-8 border-blue-200 bg-blue-50">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800 flex items-center justify-between">
-              <div>
-                <strong>Mode démonstration activé</strong> - Backend non disponible. Les données affichées sont
-                simulées.
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRetryConnection}
-                className="ml-4 border-blue-300 text-blue-700 hover:bg-blue-100"
-              >
-                Réessayer la connexion
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">Bonjour {user.name?.split(" ")[0]} ! 👋</h2>
-          <p className="text-slate-600">Voici vos livraisons du jour {isDemoMode && "(données de démonstration)"}</p>
+          <h2 className="text-3xl font-bold text-slate-900 mb-2">Bonjour {user.first_name?.split(" ")[0]} ! 👋</h2>
+          <p className="text-slate-600">Voici vos livraisons du jour</p>
         </div>
 
         {/* Driver Stats */}
@@ -507,11 +373,6 @@ export default function DriverPage() {
                       <Badge className={getPriorityColor(delivery.priority)}>
                         {delivery.priority === "urgent" ? "Urgent" : "Normal"}
                       </Badge>
-                      {isDemoMode && (
-                        <Badge variant="outline" className="text-blue-600 border-blue-200">
-                          Démo
-                        </Badge>
-                      )}
                     </div>
                     <CardDescription className="text-slate-600">
                       Destinataire: <span className="font-medium">{delivery.recipient}</span>
@@ -592,39 +453,32 @@ export default function DriverPage() {
               </CardContent>
             </Card>
           ))}
-        </div>
 
-        {assignments.length === 0 && (
-          <Card className="bg-white/70 backdrop-blur-sm border-0 shadow-lg">
-            <CardContent className="text-center py-16">
-              <div className="bg-slate-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Package className="h-8 w-8 text-slate-400" />
-              </div>
-              <h3 className="text-lg font-medium text-slate-900 mb-2">Aucune livraison assignée</h3>
-              <p className="text-slate-600">
-                Vous n'avez pas de livraisons assignées pour le moment.
-                {isDemoMode && " (Mode démonstration)"}
-              </p>
-            </CardContent>
-          </Card>
-        )}
+          {assignments.length === 0 && (
+            <Card className="bg-white/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardContent className="text-center py-16">
+                <div className="bg-slate-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Package className="h-8 w-8 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-medium text-slate-900 mb-2">Aucune livraison assignée</h3>
+                <p className="text-slate-600">
+                  Vous n'avez pas de livraisons assignées pour le moment.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </main>
 
       {/* Map Dialog */}
       <Dialog open={showMapDialog} onOpenChange={setShowMapDialog}>
-        <DialogContent className="max-w-4xl w-full h-[80vh]">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center space-x-2">
-              <Map className="h-5 w-5 text-blue-600" />
-              <span>Itinéraire de livraison</span>
-              {selectedDelivery && (
-                <Badge className="ml-2" variant="outline">
-                  {selectedDelivery.trackingNumber}
-                </Badge>
-              )}
-            </DialogTitle>
+            <DialogTitle>Itinéraire de livraison</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 h-full">{selectedDelivery && <MockMap delivery={selectedDelivery} />}</div>
+          <div className="h-96">
+            <MockMap delivery={selectedDelivery} />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

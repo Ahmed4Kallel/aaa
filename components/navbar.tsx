@@ -47,6 +47,8 @@ export default function Navbar() {
   const handleLogout = () => {
     localStorage.removeItem("token")
     localStorage.removeItem("user")
+    // Supprimer le token des cookies
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
     setUser(null)
     router.push("/")
   }
@@ -71,14 +73,12 @@ export default function Navbar() {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-3 group">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-2 rounded-xl group-hover:scale-110 transition-transform duration-300">
-              <Truck className="h-6 w-6 text-white" />
+            <div className="bg-white p-2 rounded-2xl shadow-lg border border-blue-100 group-hover:scale-110 transition-transform duration-300">
+              <Truck className="h-8 w-8 text-blue-600 drop-shadow" />
             </div>
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-                Ahmed Livraison.e.t
-              </h1>
-              <p className="text-xs text-slate-500 font-medium">Logistics Excellence</p>
+              <h1 className="text-2xl font-extrabold text-blue-900 tracking-tight drop-shadow-sm">Ahmed Livraison.e.t</h1>
+              <p className="text-xs text-blue-500 font-semibold">Logistics Excellence</p>
             </div>
           </Link>
 

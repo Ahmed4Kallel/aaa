@@ -28,7 +28,6 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
-  const [isDemoMode, setIsDemoMode] = useState(true) // Par défaut en mode démo
   const router = useRouter()
 
   const handleInputChange = (field: string, value: string) => {
@@ -113,26 +112,11 @@ export default function RegisterPage() {
     } catch (error: any) {
       console.error("Erreur lors de l'inscription:", error)
       
-      // Vérifier si c'est une erreur de réseau
-      if (
-        error.name === "TypeError" || 
-        (error.message && (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")))
-      ) {
-        // En cas d'erreur de connexion, passer en mode démo
-        setIsDemoMode(true)
-        setSuccess("Compte créé avec succès ! (Mode démo - backend non connecté)")
-
-        // Simuler un délai puis rediriger
-        setTimeout(() => {
-          router.push("/auth/login?message=Compte créé avec succès (Mode démo)")
-        }, 2000)
-      } else {
-        // Autres erreurs (validation, email déjà utilisé, etc.)
-        const errorMessage = typeof error === 'object' && error !== null && 'message' in error 
-          ? String(error.message) 
-          : "Erreur lors de la création du compte"
-        setError(errorMessage)
-      }
+      // Autres erreurs (validation, email déjà utilisé, etc.)
+      const errorMessage = typeof error === 'object' && error !== null && 'message' in error 
+        ? String(error.message) 
+        : "Erreur lors de la création du compte"
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -158,16 +142,6 @@ export default function RegisterPage() {
           <h2 className="text-3xl font-bold text-slate-900 mb-2">Créer un compte</h2>
           <p className="text-slate-600">Rejoignez notre équipe de livreurs</p>
         </div>
-
-        {/* Demo Mode Alert */}
-        {isDemoMode && (
-          <Alert className="mb-6 border-blue-200 bg-blue-50">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800">
-              <strong>Mode démonstration</strong> - L'inscription fonctionne même sans backend connecté.
-            </AlertDescription>
-          </Alert>
-        )}
 
         {/* Register Card */}
         <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
@@ -218,15 +192,18 @@ export default function RegisterPage() {
                   <Label htmlFor="lastName" className="text-slate-700 font-medium">
                     Nom *
                   </Label>
-                  <Input
-                    id="lastName"
-                    type="text"
-                    placeholder="Dupont"
-                    value={formData.lastName}
-                    onChange={(e) => handleInputChange("lastName", e.target.value)}
-                    className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                    required
-                  />
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      id="lastName"
+                      type="text"
+                      placeholder="Dupont"
+                      value={formData.lastName}
+                      onChange={(e) => handleInputChange("lastName", e.target.value)}
+                      className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -363,18 +340,6 @@ export default function RegisterPage() {
                   Se connecter
                 </Link>
               </p>
-            </div>
-
-            {/* Demo info */}
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm text-blue-800 font-medium mb-2">Mode démonstration :</p>
-              <p className="text-xs text-blue-700 mb-1">L'inscription fonctionne même sans backend connecté.</p>
-              <p className="text-xs text-blue-700">Remplissez le formulaire avec des données valides pour tester.</p>
-              {isDemoMode && (
-                <p className="text-xs text-blue-800 font-medium mt-2">
-                  ⚡ Backend non disponible - Fonctionnement en mode démo automatique
-                </p>
-              )}
             </div>
           </CardContent>
         </Card>

@@ -151,8 +151,7 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-slate-900">Adresse</h3>
-                      <p className="text-slate-600">123 Avenue des Champs-Élysées</p>
-                      <p className="text-slate-600">75008 Paris, France</p>
+                      <p className="text-slate-600">nabeul tunisia 8000 afh 2</p>
                     </div>
                   </div>
 
@@ -162,7 +161,7 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-slate-900">Téléphone</h3>
-                      <p className="text-slate-600">+33 1 23 45 67 89</p>
+                      <p className="text-slate-600">+216 44 128 333</p>
                       <p className="text-slate-600">Lun-Ven: 9h-18h</p>
                     </div>
                   </div>

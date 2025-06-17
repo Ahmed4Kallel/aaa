@@ -16,6 +16,8 @@ export const API_ENDPOINTS = {
   DRIVER: {
     GET_ASSIGNMENTS: `${API_BASE_URL}/api/driver/assignments`,
     UPDATE_STATUS: (deliveryId: string) => `${API_BASE_URL}/api/deliveries/${deliveryId}/status`,
+    UPDATE_PROFILE: (userId: string) => `${API_BASE_URL}/api/driver/profile/${userId}`,
+    GET_DRIVERS: `${API_BASE_URL}/api/drivers`,
   },
   // Stats endpoints
   STATS: {

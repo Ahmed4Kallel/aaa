@@ -17,7 +17,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import Navbar from "@/components/navbar"
@@ -30,8 +30,6 @@ export default function HomePage() {
   const [trackingResult, setTrackingResult] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [currentDelivery, setCurrentDelivery] = useState(null)
-  const [isDemoMode, setIsDemoMode] = useState(false)
-  const [backendStatus, setBackendStatus] = useState("checking") // checking, available, unavailable
 
   useEffect(() => {
     // Simulation d'une livraison en cours pour la démo de la carte
@@ -45,35 +43,7 @@ export default function HomePage() {
       coordinates: { lat: 48.8606, lng: 2.3376 },
       driverLocation: { lat: 48.8584, lng: 2.2945 },
     })
-
-    // Vérifier la disponibilité du backend au chargement
-    checkBackendAvailability()
   }, [])
-
-  const checkBackendAvailability = async () => {
-    try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 secondes timeout
-
-      const response = await fetch("http://localhost:8000/", {
-        method: "GET",
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
-
-      if (response.ok) {
-        setBackendStatus("available")
-        setIsDemoMode(false)
-      } else {
-        setBackendStatus("unavailable")
-        setIsDemoMode(true)
-      }
-    } catch (error) {
-      setBackendStatus("unavailable")
-      setIsDemoMode(true)
-    }
-  }
 
   const handleTrack = async () => {
     if (!trackingNumber.trim()) {
@@ -84,46 +54,21 @@ export default function HomePage() {
     setTrackingResult(null)
 
     try {
-      let data = null
-
-      if (backendStatus === "available") {
-        // Essayer d'abord avec le backend
-        try {
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 secondes timeout
-
-          const response = await fetch(`http://localhost:8000/api/track/${trackingNumber}`, {
-            signal: controller.signal,
+      const response = await fetch(`/api/track/${trackingNumber}`)
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          setTrackingResult({
+            error: true,
+            message: "Numéro de suivi non trouvé",
+            trackingNumber: trackingNumber,
           })
-
-          clearTimeout(timeoutId)
-
-          if (!response.ok) {
-            if (response.status === 404) {
-              throw new Error("TRACKING_NOT_FOUND")
-            }
-            throw new Error(`HTTP error! status: ${response.status}`)
-          }
-
-          data = await response.json()
-        } catch (error) {
-          if (error.message === "TRACKING_NOT_FOUND") {
-            throw error // Re-lancer l'erreur 404
-          }
-
-          // Si erreur réseau, basculer en mode démo
-          console.warn("Backend indisponible, basculement en mode démo:", error)
-          setBackendStatus("unavailable")
-          setIsDemoMode(true)
-          data = null // Forcer l'utilisation des données mockées
+          return
         }
+        throw new Error(`Erreur ${response.status}`)
       }
 
-      // Si pas de données du backend ou mode démo, utiliser les données mockées
-      if (!data) {
-        data = getMockTrackingData(trackingNumber)
-      }
-
+      const data = await response.json()
       setTrackingResult(data)
 
       // Mettre à jour la livraison courante pour la carte
@@ -134,145 +79,13 @@ export default function HomePage() {
       })
     } catch (error) {
       console.error("Erreur lors du tracking:", error)
-
-      if (error.message === "TRACKING_NOT_FOUND") {
-        // Numéro de suivi non trouvé
-        setTrackingResult({
-          error: true,
-          message: "Numéro de suivi non trouvé",
-          trackingNumber: trackingNumber,
-        })
-      } else {
-        // Autres erreurs - utiliser les données mockées
-        const mockData = getMockTrackingData(trackingNumber)
-        setTrackingResult(mockData)
-        setIsDemoMode(true)
-
-        // Mettre à jour la livraison courante pour la carte
-        setCurrentDelivery({
-          ...mockData,
-          id: "1",
-          destination: "123 Rue de la Paix, 75001 Paris",
-        })
-      }
+      setTrackingResult({
+        error: true,
+        message: "Erreur lors de la recherche du colis",
+        trackingNumber: trackingNumber,
+      })
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const getMockTrackingData = (trackingNum) => {
-    // Données mockées basées sur le numéro de suivi
-    const mockDatabase = {
-      TRK123456: {
-        trackingNumber: "TRK123456",
-        status: "in_transit",
-        sender: "Amazon France",
-        recipient: "Jean Dupont",
-        currentLocation: "Centre de tri Paris Nord",
-        estimatedDelivery: "2024-01-15",
-        coordinates: { lat: 48.8606, lng: 2.3376 },
-        driverLocation: { lat: 48.8584, lng: 2.2945 },
-        history: [
-          {
-            timestamp: "2024-01-12 09:00",
-            status: "pending",
-            description: "Commande créée",
-          },
-          {
-            timestamp: "2024-01-12 14:30",
-            status: "picked_up",
-            description: "Colis récupéré par le transporteur",
-          },
-          {
-            timestamp: "2024-01-13 08:15",
-            status: "in_transit",
-            description: "En transit vers le centre de tri Paris Nord",
-          },
-        ],
-      },
-      TRK789012: {
-        trackingNumber: "TRK789012",
-        status: "delivered",
-        sender: "Fnac",
-        recipient: "Marie Martin",
-        currentLocation: "Livré",
-        estimatedDelivery: "2024-01-14",
-        coordinates: { lat: 48.8566, lng: 2.3522 },
-        driverLocation: { lat: 48.8566, lng: 2.3522 },
-        history: [
-          {
-            timestamp: "2024-01-11 10:00",
-            status: "pending",
-            description: "Commande créée",
-          },
-          {
-            timestamp: "2024-01-11 16:45",
-            status: "picked_up",
-            description: "Colis récupéré par le transporteur",
-          },
-          {
-            timestamp: "2024-01-12 09:30",
-            status: "in_transit",
-            description: "En transit vers Lyon",
-          },
-          {
-            timestamp: "2024-01-14 11:20",
-            status: "delivered",
-            description: "Livré au destinataire",
-          },
-        ],
-      },
-      TRK345678: {
-        trackingNumber: "TRK345678",
-        status: "pending",
-        sender: "Cdiscount",
-        recipient: "Pierre Durand",
-        currentLocation: "En attente de récupération",
-        estimatedDelivery: "2024-01-16",
-        coordinates: { lat: 48.8738, lng: 2.295 },
-        driverLocation: { lat: 48.8738, lng: 2.295 },
-        history: [
-          {
-            timestamp: "2024-01-13 15:30",
-            status: "pending",
-            description: "Commande créée et en attente",
-          },
-        ],
-      },
-    }
-
-    // Retourner les données correspondantes ou générer des données par défaut
-    if (mockDatabase[trackingNum]) {
-      return mockDatabase[trackingNum]
-    }
-
-    // Générer des données par défaut pour tout autre numéro
-    return {
-      trackingNumber: trackingNum,
-      status: "in_transit",
-      sender: "Boutique en ligne",
-      recipient: "Client",
-      currentLocation: "En transit",
-      estimatedDelivery: "2024-01-16",
-      coordinates: { lat: 48.8566, lng: 2.3522 },
-      driverLocation: { lat: 48.8584, lng: 2.2945 },
-      history: [
-        {
-          timestamp: "2024-01-13 10:00",
-          status: "pending",
-          description: "Commande créée",
-        },
-        {
-          timestamp: "2024-01-13 16:00",
-          status: "picked_up",
-          description: "Colis récupéré par le transporteur",
-        },
-        {
-          timestamp: "2024-01-14 09:00",
-          status: "in_transit",
-          description: "En transit vers la destination",
-        },
-      ],
     }
   }
 
@@ -325,30 +138,9 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       <Navbar />
 
-      {/* Hero Section */}
       <main className="pt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          {/* Backend Status Alert */}
-          {isDemoMode && (
-            <Alert className="mb-8 border-blue-200 bg-blue-50 max-w-4xl mx-auto">
-              <AlertCircle className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-800 flex items-center justify-between">
-                <div>
-                  <strong>Mode démonstration activé</strong> - Backend non disponible. Le suivi fonctionne avec des
-                  données simulées.
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={checkBackendAvailability}
-                  className="ml-4 border-blue-300 text-blue-700 hover:bg-blue-100"
-                >
-                  Réessayer
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-
+          {/* Hero Section */}
           <div className="text-center mb-16 animate-in fade-in slide-in-from-bottom-4 duration-1000">
             <div className="inline-flex items-center px-4 py-2 bg-blue-50 border border-blue-200 rounded-full text-blue-700 text-sm font-medium mb-6 animate-pulse">
               <Shield className="h-4 w-4 mr-2" />
@@ -376,7 +168,7 @@ export default function HomePage() {
                     value={trackingNumber}
                     onChange={(e) => setTrackingNumber(e.target.value)}
                     onKeyPress={(e) => e.key === "Enter" && handleTrack()}
-                    className="flex-1 h-14 text-lg border-slate-200 focus:border-blue-500 focus:ring-blue-500"
+                    className="flex-1 h-14 text-lg bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 rounded-xl shadow-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all"
                   />
                   <Button
                     onClick={handleTrack}
@@ -389,11 +181,6 @@ export default function HomePage() {
                 </div>
                 <div className="mt-4 text-sm text-slate-500">
                   <p>Essayez avec: TRK123456, TRK789012, TRK345678, ou n'importe quel numéro</p>
-                  {isDemoMode && (
-                    <p className="text-blue-600 font-medium mt-1">
-                      ⚡ Mode démo - Tous les numéros fonctionnent avec des données simulées
-                    </p>
-                  )}
                 </div>
               </div>
             </div>
@@ -404,9 +191,7 @@ export default function HomePage() {
             <div className="text-center mb-12">
               <h2 className="text-4xl font-bold text-slate-900 mb-4">Suivi en temps réel</h2>
               <p className="text-xl text-slate-600">Visualisez la position de vos colis sur une carte interactive</p>
-              <p className="text-sm text-slate-500 mt-2">
-                {isDemoMode ? "Mode démonstration - Interface simulée" : "Carte en temps réel"}
-              </p>
+              <p className="text-sm text-slate-500 mt-2">Carte en temps réel</p>
             </div>
             <div className="max-w-4xl mx-auto">
               <MockMap delivery={currentDelivery} />
@@ -440,11 +225,6 @@ export default function HomePage() {
                       <div>
                         <div className="flex items-center space-x-3">
                           <span className="text-2xl">Colis {trackingResult.trackingNumber}</span>
-                          {isDemoMode && (
-                            <Badge variant="outline" className="text-blue-600 border-blue-200">
-                              Mode Démo
-                            </Badge>
-                          )}
                         </div>
                         <p className="text-sm text-slate-600 font-normal">
                           De {trackingResult.sender} vers {trackingResult.recipient}
@@ -476,7 +256,7 @@ export default function HomePage() {
                           Historique de livraison
                         </h4>
                         <div className="space-y-4">
-                          {trackingResult.history.map((event, index) => (
+                          {trackingResult.history?.map((event, index) => (
                             <div
                               key={index}
                               className="flex items-center space-x-6 p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors"
@@ -506,10 +286,10 @@ export default function HomePage() {
                 <div className="bg-gradient-to-r from-blue-500 to-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                   <Package className="h-8 w-8 text-white" />
                 </div>
-                <CardTitle className="text-2xl">Suivi en temps réel</CardTitle>
+                <CardTitle className="text-2xl font-bold text-slate-900 tracking-tight">Suivi en temps réel</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-600 leading-relaxed text-lg">
+                <p className="text-slate-600 leading-relaxed text-base font-medium">
                   Suivez vos colis en temps réel avec des mises à jour automatiques, notifications push et
                   géolocalisation précise.
                 </p>
@@ -521,10 +301,10 @@ export default function HomePage() {
                 <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                   <Zap className="h-8 w-8 text-white" />
                 </div>
-                <CardTitle className="text-2xl">Livraison express</CardTitle>
+                <CardTitle className="text-2xl font-bold text-slate-900 tracking-tight">Livraison express</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-600 leading-relaxed text-lg">
+                <p className="text-slate-600 leading-relaxed text-base font-medium">
                   Livraison express dans toute la France en 24-48h avec notre réseau de partenaires certifiés et
                   optimisés.
                 </p>
@@ -536,10 +316,10 @@ export default function HomePage() {
                 <div className="bg-gradient-to-r from-purple-500 to-purple-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                   <Shield className="h-8 w-8 text-white" />
                 </div>
-                <CardTitle className="text-2xl">100% Sécurisé</CardTitle>
+                <CardTitle className="text-2xl font-bold text-slate-900 tracking-tight">100% Sécurisé</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-600 leading-relaxed text-lg">
+                <p className="text-slate-600 leading-relaxed text-base font-medium">
                   Vos colis sont assurés et sécurisés avec notre technologie de tracking avancée et notre garantie
                   satisfaction.
                 </p>

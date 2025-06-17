@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
 import MockMap from "@/components/mock-map"
+import { API_ENDPOINTS } from "@/lib/config"
 
 export default function TrackingPage() {
   const [trackingNumber, setTrackingNumber] = useState("")
@@ -20,7 +21,7 @@ export default function TrackingPage() {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:8000/api/track/${trackingNumber}`)
+      const response = await fetch(API_ENDPOINTS.TRACKING.GET_PACKAGE(trackingNumber))
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }

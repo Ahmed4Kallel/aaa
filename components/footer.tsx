@@ -113,13 +113,12 @@ export default function Footer() {
               <div className="flex items-center space-x-3">
                 <MapPin className="h-5 w-5 text-blue-400" />
                 <div>
-                  <p className="text-slate-300">123 Avenue des Champs-Élysées</p>
-                  <p className="text-slate-300">75008 Paris, France</p>
+                  <p className="text-slate-300">nabeul tunisia 8000 afh 2</p>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
                 <Phone className="h-5 w-5 text-blue-400" />
-                <p className="text-slate-300">+33 1 23 45 67 89</p>
+                <p className="text-slate-300">+216 44 128 333</p>
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="h-5 w-5 text-blue-400" />

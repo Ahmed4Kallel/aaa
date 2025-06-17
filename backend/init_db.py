@@ -15,13 +15,18 @@ def create_database():
     cursor = conn.cursor()
     
     # Création de la base de données si elle n'existe pas
-    cursor.execute("CREATE DATABASE IF NOT EXISTS delivery_tracker")
+    cursor.execute("CREATE DATABASE IF NOT EXISTS tracker_delivery")
     
     # Fermeture de la connexion
     cursor.close()
     conn.close()
     
     print("Base de données 'delivery_tracker' créée avec succès.")
+
+def drop_tables():
+    from database import Base, engine
+    Base.metadata.drop_all(bind=engine)
+    print("Toutes les tables ont été supprimées.")
 
 def insert_demo_data():
     from database import SessionLocal, User, Delivery, TrackingHistory
@@ -164,6 +169,9 @@ def insert_demo_data():
 if __name__ == "__main__":
     # Créer la base de données
     create_database()
+    
+    # Supprimer les tables existantes (pour recréer avec le nouveau schéma)
+    drop_tables()
     
     # Initialiser les tables
     init_db()
